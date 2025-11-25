@@ -3,7 +3,8 @@ node_modules
 .pnpm-store
 
 # Environment variables
-# .env files are now tracked in git
+.env
+.env.*
 
 # Logs
 npm-debug.log*
