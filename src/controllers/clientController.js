@@ -130,7 +130,11 @@ export const createClient = async (req, res) => {
             status,
             expiryDate,
             address,
-            emergencyContact
+            emergencyContact,
+            age,
+            isStudent,
+            studentIdUrl,
+            photoUrl
         } = req.body;
 
         // Validate required fields
@@ -176,7 +180,11 @@ export const createClient = async (req, res) => {
                 status: status || 'pending',
                 expiryDate: new Date(expiryDate),
                 address,
-                emergencyContact
+                emergencyContact,
+                age: age ? parseInt(age) : null,
+                isStudent: isStudent || false,
+                studentIdUrl,
+                photoUrl
             }
         });
 
@@ -225,7 +233,11 @@ export const updateClient = async (req, res) => {
             status,
             expiryDate,
             address,
-            emergencyContact
+            emergencyContact,
+            age,
+            isStudent,
+            studentIdUrl,
+            photoUrl
         } = req.body;
 
         // Check if client exists
@@ -234,7 +246,7 @@ export const updateClient = async (req, res) => {
         });
 
         if (!existingClient) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
                 message: 'Client not found'
             });
@@ -252,7 +264,11 @@ export const updateClient = async (req, res) => {
                 status,
                 expiryDate: expiryDate ? new Date(expiryDate) : undefined,
                 address,
-                emergencyContact
+                emergencyContact,
+                age: age ? parseInt(age) : undefined,
+                isStudent: isStudent !== undefined ? isStudent : undefined,
+                studentIdUrl,
+                photoUrl
             }
         });
 

@@ -7,20 +7,35 @@ const prisma = new PrismaClient();
  */
 export const createPayment = async (req, res) => {
     try {
-        const { planName, amount, paymentMethod, receiptUrl } = req.body;
+        const { planName, amount, paymentMethod, receiptUrl, membershipPlanId } = req.body;
         const userId = req.user.id;
 
-        if (!planName || !amount || !paymentMethod) {
+        if (!amount || !paymentMethod) {
             return res.status(400).json({
                 success: false,
                 message: 'Missing required fields'
             });
         }
 
+        // Validate membership plan if provided
+        let planDetails = null;
+        if (membershipPlanId) {
+            planDetails = await prisma.membershipPlan.findUnique({
+                where: { id: parseInt(membershipPlanId) }
+            });
+            if (!planDetails) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid membership plan'
+                });
+            }
+        }
+
         const payment = await prisma.payment.create({
             data: {
                 userId,
-                planName,
+                planName: planDetails ? planDetails.name : (planName || 'Custom'),
+                membershipPlanId: membershipPlanId ? parseInt(membershipPlanId) : null,
                 amount: parseFloat(amount),
                 paymentMethod,
                 receiptUrl,
@@ -123,14 +138,37 @@ export const updatePaymentStatus = async (req, res) => {
             const payment = await prisma.payment.update({
                 where: { id: parseInt(id) },
                 data: { status },
-                include: { user: true }
+                include: { user: true, membershipPlan: true }
             });
 
             // 2. If approved, update User Membership
             if (status === 'approved') {
-                // Calculate new expiry date (e.g., +30 days)
+                // Calculate new expiry date
                 const today = new Date();
-                const expiryDate = new Date(today.setDate(today.getDate() + 30));
+                let durationDays = 30; // Default fallback
+
+                if (payment.membershipPlan) {
+                    durationDays = payment.membershipPlan.durationDays;
+                } else {
+                    // Try to infer from planName (Legacy support)
+                    const name = payment.planName.toLowerCase();
+                    if (name.includes('week')) durationDays = 7;
+                    else if (name.includes('half month')) durationDays = 15;
+                    else if (name.includes('3 month')) durationDays = 90;
+                    else if (name.includes('6 month')) durationDays = 180;
+                    else if (name.includes('year')) durationDays = 365;
+                    else if (name.includes('walk-in') || name.includes('daily')) durationDays = 1;
+                }
+
+                // If user already has an active future expiry, add to it? 
+                // For now, let's just set it from today or extend current expiry if it's in the future.
+                let startDate = today;
+                if (payment.user.expiryDate && payment.user.expiryDate > today) {
+                    startDate = payment.user.expiryDate;
+                }
+
+                const expiryDate = new Date(startDate);
+                expiryDate.setDate(expiryDate.getDate() + durationDays);
 
                 await prisma.user.update({
                     where: { id: payment.userId },

@@ -10,8 +10,11 @@ import clientRoutes from "./routes/clients.js";
 import paymentRoutes from "./routes/payments.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import notificationRoutes from "./routes/notifications.js";
+import membershipRoutes from "./routes/membership.js";
+import reportRoutes from "./routes/reports.js";
 import { testEmailConfiguration } from "./services/emailService.js";
 import { checkExpiringMemberships } from "./services/membershipService.js";
+import cron from 'node-cron';
 
 const app = express();
 
@@ -47,9 +50,17 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/membership", membershipRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Run expiry check on startup
 checkExpiringMemberships();
+
+// Schedule expiry check daily at 9:00 AM
+cron.schedule('0 9 * * *', () => {
+    console.log('Running daily membership expiry check...');
+    checkExpiringMemberships();
+});
 
 // Health check endpoint
 app.get("/", (req, res) => {

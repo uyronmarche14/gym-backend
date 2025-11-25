@@ -25,7 +25,11 @@ model User {
   
   // Client/Membership fields (Now part of User)
   phone                 String?
-  membershipType        String?   // Gold, Silver, Bronze
+  age                   Int?
+  isStudent             Boolean   @default(false)
+  studentIdUrl          String?
+  photoUrl              String?
+  membershipType        String?   // Gold, Silver, Bronze (Legacy, keep for now or migrate)
   status                String?   @default("pending") // active, pending, expired
   joinDate              DateTime  @default(now())
   expiryDate            DateTime?
@@ -40,6 +44,19 @@ model User {
   notifications         Notification[]
 }
 
+model MembershipPlan {
+  id            Int       @id @default(autoincrement())
+  name          String
+  durationDays  Int       // 1, 7, 15, 30, 90, 180, 365
+  price         Float
+  studentPrice  Float?
+  description   String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  payments      Payment[]
+}
+
 model Note {
   id        Int      @id @default(autoincrement())
   title     String
@@ -51,16 +68,18 @@ model Note {
 }
 
 model Payment {
-  id            Int      @id @default(autoincrement())
-  userId        Int
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planName      String   // Gold, Silver, Bronze
-  amount        Float
-  paymentMethod String   // cash, gcash
-  status        String   @default("pending") // pending, approved, rejected
-  receiptUrl    String?  // For GCash screenshots
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                Int             @id @default(autoincrement())
+  userId            Int
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membershipPlanId  Int?
+  membershipPlan    MembershipPlan? @relation(fields: [membershipPlanId], references: [id])
+  planName          String          // Keep for historical record or if plan is deleted
+  amount            Float
+  paymentMethod     String          // cash, gcash
+  status            String          @default("pending") // pending, approved, rejected
+  receiptUrl        String?         // For GCash screenshots
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
 
 model CheckIn {
