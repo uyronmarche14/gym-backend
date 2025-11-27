@@ -12,6 +12,10 @@ import dashboardRoutes from "./routes/dashboard.js";
 import notificationRoutes from "./routes/notifications.js";
 import membershipRoutes from "./routes/membership.js";
 import reportRoutes from "./routes/reports.js";
+import coachRoutes from "./routes/coaches.js";
+import coachingPackageRoutes from "./routes/coachingPackages.js";
+import trainingSessionRoutes from "./routes/trainingSessions.js";
+import packagePurchaseRoutes from "./routes/packagePurchases.js";
 import { testEmailConfiguration } from "./services/emailService.js";
 import { checkExpiringMemberships } from "./services/membershipService.js";
 import cron from 'node-cron';
@@ -52,6 +56,10 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/membership", membershipRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/coaches", coachRoutes);
+app.use("/api/coaching-packages", coachingPackageRoutes);
+app.use("/api/training-sessions", trainingSessionRoutes);
+app.use("/api/package-purchases", packagePurchaseRoutes);
 
 // Run expiry check on startup
 checkExpiringMemberships();
@@ -70,7 +78,10 @@ app.get("/", (req, res) => {
             "JWT Authentication",
             "Google OAuth",
             "Email Service",
-            "Real-time Webhooks"
+            "Real-time Webhooks",
+            "Coaching & Training Services",
+            "Membership Management",
+            "Payment Processing"
         ]
     });
 });

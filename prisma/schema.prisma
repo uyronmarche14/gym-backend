@@ -42,6 +42,11 @@ model User {
   payments              Payment[]
   checkIns              CheckIn[]
   notifications         Notification[]
+  
+  // Coaching relations
+  coachProfile          Coach?
+  packagePurchases      PackagePurchase[]
+  trainingSessions      TrainingSession[]
 }
 
 model MembershipPlan {
@@ -76,10 +81,14 @@ model Payment {
   planName          String          // Keep for historical record or if plan is deleted
   amount            Float
   paymentMethod     String          // cash, gcash
+  paymentType       String          @default("membership") // membership, coaching_package
   status            String          @default("pending") // pending, approved, rejected
   receiptUrl        String?         // For GCash screenshots
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
+  
+  // Coaching relation
+  packagePurchase   PackagePurchase?
 }
 
 model CheckIn {
@@ -98,4 +107,138 @@ model Notification {
   type      String   @default("info") // info, warning, success, error
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// ============================================
+// COACHING MODULE MODELS
+// ============================================
+
+model Coach {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Coach Details
+  specializations   String    @db.Text  // JSON array: ["Strength", "Yoga", "Nutrition"]
+  bio               String?   @db.Text
+  certifications    String?   @db.Text  // JSON array of certification objects
+  photoUrl          String?
+  hourlyRate        Float?
+  
+  // Availability
+  isActive          Boolean   @default(true)
+  availableSlots    String?   @db.Text  // JSON: {"monday": ["09:00-12:00", "14:00-17:00"], ...}
+  
+  // Stats
+  totalSessions     Int       @default(0)
+  rating            Float?    @default(0)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  packages          CoachingPackage[]
+  sessions          TrainingSession[]
+}
+
+model CoachingPackage {
+  id                Int       @id @default(autoincrement())
+  name              String    // "1-on-1 Personal Training", "Group Fitness"
+  description       String?   @db.Text
+  
+  // Package Details
+  packageType       String    // "one_on_one", "group", "monthly_plan"
+  sessionsIncluded  Int       // Number of sessions in package
+  sessionDuration   Int       // Duration in minutes (e.g., 60)
+  validityDays      Int       // Package expires after X days (e.g., 30)
+  maxParticipants   Int       @default(1)  // 1 for 1-on-1, >1 for group
+  
+  // Pricing
+  price             Float
+  studentPrice      Float?
+  
+  // Coach Assignment
+  coachId           Int?
+  coach             Coach?    @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  isCoachSpecific   Boolean   @default(false)  // true = must book with this coach
+  
+  // Status
+  isActive          Boolean   @default(true)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  purchases         PackagePurchase[]
+}
+
+model PackagePurchase {
+  id                Int       @id @default(autoincrement())
+  
+  // User & Package
+  userId            Int
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId         Int
+  package           CoachingPackage @relation(fields: [packageId], references: [id])
+  
+  // Purchase Details
+  packageName       String    // Historical record
+  totalSessions     Int       // Sessions included at purchase
+  sessionsRemaining Int       // Decrements with each booking
+  
+  // Payment
+  paymentId         Int?      @unique
+  payment           Payment?  @relation(fields: [paymentId], references: [id])
+  amount            Float
+  
+  // Validity
+  purchaseDate      DateTime  @default(now())
+  expiryDate        DateTime
+  status            String    @default("active")  // active, expired, used
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  sessions          TrainingSession[]
+}
+
+model TrainingSession {
+  id                Int       @id @default(autoincrement())
+  
+  // Participants
+  userId            Int
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coachId           Int
+  coach             Coach     @relation(fields: [coachId], references: [id])
+  
+  // Package Link
+  purchaseId        Int?
+  purchase          PackagePurchase? @relation(fields: [purchaseId], references: [id])
+  
+  // Session Details
+  sessionType       String    // "one_on_one", "group"
+  sessionDate       DateTime
+  startTime         String    // "09:00"
+  endTime           String    // "10:00"
+  durationMinutes   Int       @default(60)
+  
+  // Location
+  location          String?   // "Gym Floor", "Studio A", "Online"
+  
+  // Status
+  status            String    @default("scheduled")  // scheduled, completed, cancelled, no_show
+  
+  // Notes & Progress
+  coachNotes        String?   @db.Text
+  clientNotes       String?   @db.Text
+  exercisesPerformed String?  @db.Text  // JSON array
+  
+  // Cancellation
+  cancelledBy       String?   // "user", "coach", "admin"
+  cancellationReason String?  @db.Text
+  cancelledAt       DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

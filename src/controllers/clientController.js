@@ -131,6 +131,7 @@ export const createClient = async (req, res) => {
             expiryDate,
             address,
             emergencyContact,
+            // notes removed - it's a relation, not a string field
             age,
             isStudent,
             studentIdUrl,
@@ -181,6 +182,7 @@ export const createClient = async (req, res) => {
                 expiryDate: new Date(expiryDate),
                 address,
                 emergencyContact,
+                // notes is a relation, not a string field - removed
                 age: age ? parseInt(age) : null,
                 isStudent: isStudent || false,
                 studentIdUrl,
@@ -188,20 +190,25 @@ export const createClient = async (req, res) => {
             }
         });
 
-        // Trigger webhook to send email with credentials
-        await triggerWebhookEvent('user.created', {
-            user: {
-                id: client.id,
-                email: client.email,
-                firstName: client.firstName,
-                lastName: client.lastName
-            },
-            credentials: {
-                username,
-                password // Send plain password
-            },
-            loginUrl: `${process.env.FRONTEND_URL}/login`
-        });
+        // Trigger webhook to send email with credentials (non-blocking)
+        try {
+            await triggerWebhookEvent('user.created', {
+                user: {
+                    id: client.id,
+                    email: client.email,
+                    firstName: client.firstName,
+                    lastName: client.lastName
+                },
+                credentials: {
+                    username,
+                    password // Send plain password
+                },
+                loginUrl: `${process.env.FRONTEND_URL}/login`
+            });
+        } catch (webhookError) {
+            console.error('Webhook failed (non-critical):', webhookError);
+            // Don't fail the request if webhook fails
+        }
 
         res.status(201).json({
             success: true,
@@ -234,6 +241,7 @@ export const updateClient = async (req, res) => {
             expiryDate,
             address,
             emergencyContact,
+            // notes removed - it's a relation, not a string field
             age,
             isStudent,
             studentIdUrl,
@@ -265,6 +273,7 @@ export const updateClient = async (req, res) => {
                 expiryDate: expiryDate ? new Date(expiryDate) : undefined,
                 address,
                 emergencyContact,
+                // notes is a relation, not a string field - removed
                 age: age ? parseInt(age) : undefined,
                 isStudent: isStudent !== undefined ? isStudent : undefined,
                 studentIdUrl,

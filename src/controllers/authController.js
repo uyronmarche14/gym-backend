@@ -178,6 +178,9 @@ export const login = async (req, res) => {
           { email: emailOrUsername },
           { username: emailOrUsername }
         ]
+      },
+      include: {
+        coachProfile: true // Include coach profile to determine if user is a coach
       }
     });
 
@@ -212,12 +215,16 @@ export const login = async (req, res) => {
       });
     }
 
+    // Determine user role: admin > coach > user
+    const userRole = user.role === 'admin' ? 'admin' :
+      (user.coachProfile && user.coachProfile.isActive) ? 'coach' : 'user';
+
     // Generate JWT token
     const token = jwt.sign(
       {
         userId: user.id,
         email: user.email,
-        role: user.role || 'user',
+        role: userRole, // Use determined role
         isOAuth: !!user.googleId
       },
       process.env.JWT_SECRET,
@@ -253,7 +260,7 @@ export const login = async (req, res) => {
         username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role || 'user',
+        role: userRole, // Use determined role
         isVerified: user.isVerified,
         isOAuth: !!user.googleId
       }
@@ -274,19 +281,11 @@ export const verifyToken = async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Get user details
+    // Get user details with coach profile
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isVerified: true,
-        googleId: true,
-        createdAt: true
+      include: {
+        coachProfile: true // Include coach profile to determine if user is a coach
       }
     });
 
@@ -294,11 +293,18 @@ export const verifyToken = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Determine user role: admin > coach > user
+    const userRole = user.role === 'admin' ? 'admin' :
+      (user.coachProfile && user.coachProfile.isActive) ? 'coach' : 'user';
+
     res.json({
       message: "Token valid",
       userId: user.id,
       username: user.username,
-      role: user.role || 'user',
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: userRole, // Use determined role
       user: {
         ...user,
         isOAuth: !!user.googleId

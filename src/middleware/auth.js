@@ -55,3 +55,38 @@ export const isAdmin = (req, res, next) => {
 
   next();
 };
+
+// Alias for consistency
+export const requireAdmin = isAdmin;
+
+/**
+ * Middleware to check if authenticated user is a coach
+ * Must be used after authenticateToken
+ */
+export const requireCoach = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  if (req.user.role !== 'coach') {
+    return res.status(403).json({ message: 'Coach access required' });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to check if authenticated user is a coach or admin
+ * Must be used after authenticateToken
+ */
+export const requireCoachOrAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  if (req.user.role !== 'coach' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Coach or admin access required' });
+  }
+
+  next();
+};
