@@ -397,7 +397,7 @@ Thank you for joining us!`
 };
 
 // Send temporary password email for OAuth users with QR code
-const sendTempPasswordEmail = async ({ email, firstName, lastName, tempPassword, changePasswordUrl }) => {
+const sendTempPasswordEmail = async ({ email, firstName, lastName, tempPassword, passwordChangeToken, changePasswordUrl }) => {
   try {
     const transporter = createTransporter();
 
@@ -407,6 +407,7 @@ const sendTempPasswordEmail = async ({ email, firstName, lastName, tempPassword,
       type: 'password_change',
       email,
       tempPassword,
+      token: passwordChangeToken,
       changePasswordUrl,
       timestamp: new Date().toISOString(),
       expiresIn: '24h'
@@ -671,9 +672,194 @@ const testEmailConfiguration = async () => {
   }
 };
 
+// Send password reset email
+const sendPasswordResetEmail = async ({ email, firstName, lastName, resetToken, resetUrl }) => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: 'Reset Your Password',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reset Password</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              background: #f5f5f5;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background: white;
+              padding: 40px;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #ff6b6b;
+              padding-bottom: 20px;
+            }
+            .header h1 {
+              color: #ff6b6b;
+              margin: 0;
+              font-size: 28px;
+            }
+            .content {
+              margin: 30px 0;
+            }
+            .greeting {
+              font-size: 16px;
+              margin-bottom: 20px;
+              color: #555;
+            }
+            .message {
+              background: #fff3cd;
+              border-left: 4px solid #ffc107;
+              padding: 15px;
+              margin: 20px 0;
+              border-radius: 4px;
+              color: #856404;
+            }
+            .reset-button {
+              display: inline-block;
+              background: #ff6b6b;
+              color: white;
+              padding: 12px 30px;
+              text-decoration: none;
+              border-radius: 4px;
+              font-weight: bold;
+              margin: 20px 0;
+              transition: background 0.3s;
+            }
+            .reset-button:hover {
+              background: #ff5252;
+            }
+            .reset-link {
+              word-break: break-all;
+              background: #f8f9fa;
+              padding: 15px;
+              border-radius: 4px;
+              font-size: 12px;
+              color: #666;
+              margin: 20px 0;
+              font-family: monospace;
+            }
+            .expiry-notice {
+              background: #f8d7da;
+              border-left: 4px solid #dc3545;
+              padding: 15px;
+              margin: 20px 0;
+              border-radius: 4px;
+              color: #721c24;
+              font-size: 14px;
+            }
+            .security-tips {
+              background: #d1ecf1;
+              border-left: 4px solid #17a2b8;
+              padding: 15px;
+              margin: 20px 0;
+              border-radius: 4px;
+              color: #0c5460;
+              font-size: 14px;
+            }
+            .security-tips ul {
+              margin: 10px 0;
+              padding-left: 20px;
+            }
+            .security-tips li {
+              margin: 5px 0;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #eee;
+              font-size: 12px;
+              color: #999;
+            }
+            .divider {
+              height: 1px;
+              background: #eee;
+              margin: 20px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔐 Password Reset Request</h1>
+            </div>
+
+            <div class="content">
+              <p class="greeting">Hi ${firstName || 'User'},</p>
+
+              <p>We received a request to reset your password. Click the button below to create a new password:</p>
+
+              <div style="text-align: center;">
+                <a href="${resetUrl}" class="reset-button">Reset Password</a>
+              </div>
+
+              <p style="text-align: center; color: #999; font-size: 14px;">Or copy this link:</p>
+              <div class="reset-link">${resetUrl}</div>
+
+              <div class="expiry-notice">
+                <strong>⏰ Important:</strong> This reset link expires in <strong>1 hour</strong>. If you don't reset your password within this time, you'll need to request a new reset link.
+              </div>
+
+              <div class="message">
+                <strong>Didn't request a password reset?</strong><br>
+                If you didn't request this, you can safely ignore this email. Your password will remain unchanged.
+              </div>
+
+              <div class="security-tips">
+                <strong>🛡️ Security Tips:</strong>
+                <ul>
+                  <li>Never share your password with anyone</li>
+                  <li>Use a strong password with numbers, letters, and symbols</li>
+                  <li>Don't use the same password across multiple sites</li>
+                  <li>Change your password regularly for better security</li>
+                </ul>
+              </div>
+
+              <div class="divider"></div>
+
+              <p style="font-size: 14px; color: #666;">
+                If you have any questions or need help, please contact our support team.
+              </p>
+            </div>
+
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} All rights reserved. This is an automated email, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Password reset email sent:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('❌ Error sending password reset email:', error);
+    throw error;
+  }
+};
+
 export {
   sendLoginCredentials,
   sendOAuthSuccessEmail,
   sendTempPasswordEmail,
+  sendPasswordResetEmail,
   testEmailConfiguration
 };

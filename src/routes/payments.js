@@ -3,9 +3,11 @@ import {
     createPayment,
     getPayments,
     getUserPayments,
-    updatePaymentStatus
+    updatePaymentStatus,
+    getPaymentDetails,
+    refundPayment
 } from '../controllers/paymentController.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, isAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -16,9 +18,12 @@ router.use(authenticateToken);
 router.post('/', createPayment);
 router.get('/my-payments', getUserPayments);
 
-// Admin routes (Should ideally have admin check middleware, but controller handles logic or frontend hides it)
-// For strict security, add an isAdmin middleware here
-router.get('/', getPayments);
-router.put('/:id/status', updatePaymentStatus);
+// Payment details (both user and admin)
+router.get('/:id', getPaymentDetails);
+
+// Admin routes
+router.get('/', isAdmin, getPayments);
+router.put('/:id/status', isAdmin, updatePaymentStatus);
+router.post('/:id/refund', isAdmin, refundPayment);
 
 export default router;

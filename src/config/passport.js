@@ -3,6 +3,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { sendTempPasswordEmail } from '../services/emailService.js';
 
 const prisma = new PrismaClient();
@@ -115,12 +116,24 @@ passport.use(new GoogleStrategy({
 
     // Send temporary password email only if user requires password change
     if (user.requiresPasswordChange) {
+      // Generate password change token (24 hour expiry)
+      const passwordChangeToken = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          isPasswordChangeToken: true
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
       await sendTempPasswordEmail({
         email: user.email,
         firstName: user.firstName || 'User',
         lastName: user.lastName || '',
         tempPassword,
-        changePasswordUrl: `${process.env.FRONTEND_URL}/change-password?email=${encodeURIComponent(user.email)}`
+        passwordChangeToken,
+        changePasswordUrl: `${process.env.FRONTEND_URL}/change-password?token=${passwordChangeToken}&oauth=true`
       });
 
       console.log('Temporary password email sent to:', user.email);

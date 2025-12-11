@@ -228,7 +228,7 @@ export const login = async (req, res) => {
         isOAuth: !!user.googleId
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "30d" }
     );
 
     // Automatic Check-in
@@ -312,6 +312,23 @@ export const verifyToken = async (req, res) => {
     });
   } catch (err) {
     console.error('Token verification error:', err);
+    
+    // Handle specific JWT errors
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        message: "Token expired. Please login again.",
+        code: "TOKEN_EXPIRED",
+        expiredAt: err.expiredAt
+      });
+    }
+    
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(403).json({ 
+        message: "Invalid token",
+        code: "INVALID_TOKEN"
+      });
+    }
+    
     res.status(403).json({ message: "Invalid token" });
   }
 };
@@ -398,7 +415,7 @@ export const changePassword = async (req, res) => {
         isOAuth: true
       },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     res.json({

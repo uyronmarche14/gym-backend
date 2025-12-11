@@ -3,11 +3,22 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Create a new payment request
+ * Create a new payment request with detailed transaction tracking
  */
 export const createPayment = async (req, res) => {
     try {
-        const { planName, amount, paymentMethod, receiptUrl, membershipPlanId } = req.body;
+        const { 
+            planName, 
+            amount, 
+            paymentMethod, 
+            receiptUrl, 
+            membershipPlanId,
+            description,
+            taxAmount,
+            discountAmount,
+            paymentGateway,
+            transactionId
+        } = req.body;
         const userId = req.user.id;
 
         if (!amount || !paymentMethod) {
@@ -31,15 +42,41 @@ export const createPayment = async (req, res) => {
             }
         }
 
+        // Calculate net amount
+        const baseAmount = parseFloat(amount);
+        const tax = parseFloat(taxAmount || 0);
+        const discount = parseFloat(discountAmount || 0);
+        const netAmount = baseAmount + tax - discount;
+
+        // Generate invoice number
+        const invoiceNumber = `INV-${Date.now()}-${userId}`;
+
         const payment = await prisma.payment.create({
             data: {
                 userId,
                 planName: planDetails ? planDetails.name : (planName || 'Custom'),
                 membershipPlanId: membershipPlanId ? parseInt(membershipPlanId) : null,
-                amount: parseFloat(amount),
+                amount: baseAmount,
                 paymentMethod,
                 receiptUrl,
-                status: 'pending'
+                status: 'pending',
+                description: description || null,
+                taxAmount: tax || 0,
+                discountAmount: discount || 0,
+                netAmount: netAmount,
+                paymentGateway: paymentGateway || 'manual',
+                transactionId: transactionId || null,
+                invoiceNumber: invoiceNumber
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true
+                    }
+                }
             }
         });
 
@@ -118,12 +155,13 @@ export const getUserPayments = async (req, res) => {
 };
 
 /**
- * Update payment status (Approve/Reject)
+ * Update payment status (Approve/Reject) with admin tracking
  */
 export const updatePaymentStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body; // 'approved' or 'rejected'
+        const { status, approvalNotes } = req.body; // 'approved' or 'rejected'
+        const adminId = req.user.id;
 
         if (!['approved', 'rejected'].includes(status)) {
             return res.status(400).json({
@@ -134,10 +172,15 @@ export const updatePaymentStatus = async (req, res) => {
 
         // Start a transaction to update payment and user membership if approved
         const result = await prisma.$transaction(async (prisma) => {
-            // 1. Update Payment Status
+            // 1. Update Payment Status with admin approval tracking
             const payment = await prisma.payment.update({
                 where: { id: parseInt(id) },
-                data: { status },
+                data: { 
+                    status,
+                    approvedBy: adminId,
+                    approvalNotes: approvalNotes || null,
+                    approvedAt: new Date()
+                },
                 include: { user: true, membershipPlan: true }
             });
 
@@ -193,6 +236,125 @@ export const updatePaymentStatus = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to update payment status',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get detailed payment information
+ */
+export const getPaymentDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const payment = await prisma.payment.findUnique({
+            where: { id: parseInt(id) },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true
+                    }
+                },
+                membershipPlan: true
+            }
+        });
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Payment not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            payment
+        });
+    } catch (error) {
+        console.error('Error fetching payment details:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch payment details',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Process refund for a payment
+ */
+export const refundPayment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { refundAmount, refundReason } = req.body;
+        const adminId = req.user.id;
+
+        // Get payment
+        const payment = await prisma.payment.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Payment not found'
+            });
+        }
+
+        if (payment.status !== 'approved') {
+            return res.status(400).json({
+                success: false,
+                message: 'Only approved payments can be refunded'
+            });
+        }
+
+        const refundAmt = parseFloat(refundAmount || payment.netAmount);
+
+        if (refundAmt > payment.netAmount) {
+            return res.status(400).json({
+                success: false,
+                message: 'Refund amount cannot exceed payment amount'
+            });
+        }
+
+        // Update payment with refund details
+        const updatedPayment = await prisma.payment.update({
+            where: { id: parseInt(id) },
+            data: {
+                status: 'refunded',
+                refundAmount: refundAmt,
+                refundReason: refundReason || null,
+                refundedAt: new Date(),
+                refundStatus: 'completed',
+                approvedBy: adminId
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Payment refunded successfully',
+            payment: updatedPayment
+        });
+    } catch (error) {
+        console.error('Error refunding payment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to refund payment',
             error: error.message
         });
     }

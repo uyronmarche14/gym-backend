@@ -16,6 +16,8 @@ import coachRoutes from "./routes/coaches.js";
 import coachingPackageRoutes from "./routes/coachingPackages.js";
 import trainingSessionRoutes from "./routes/trainingSessions.js";
 import packagePurchaseRoutes from "./routes/packagePurchases.js";
+import staffRoutes from "./routes/staff.js";
+import passwordResetRoutes from "./routes/passwordReset.js";
 import { testEmailConfiguration } from "./services/emailService.js";
 import { checkExpiringMemberships } from "./services/membershipService.js";
 import cron from 'node-cron';
@@ -47,6 +49,8 @@ app.use(passport.session());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/password-reset", passwordResetRoutes);
+app.use("/api/staff", staffRoutes);
 app.use("/auth", oauthRoutes);
 app.use("/webhook", webhookRoutes);
 app.use("/api/notes", notesRoutes);

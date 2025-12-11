@@ -23,6 +23,10 @@
 		"dev": "nodemon server.js",
 		"start": "node server.js",
 		"create-admin": "node scripts/createAdmin.js",
+		"manage-plans": "node scripts/managePlans.js",
+		"seed": "node prisma/seed.js"
+	},
+	"prisma": {
 		"seed": "node prisma/seed.js"
 	}
 }
