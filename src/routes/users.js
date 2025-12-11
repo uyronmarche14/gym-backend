@@ -4,7 +4,9 @@ import {
     getAllUsers,
     getUsersByRole,
     searchUsers,
-    getUserById
+    getUserById,
+    updateUser,
+    changeUserPassword
 } from '../controllers/usersController.js';
 
 const router = express.Router();
@@ -20,5 +22,11 @@ router.get('/search', authenticateToken, requireAdmin, searchUsers);
 
 // Get user by ID
 router.get('/:userId', authenticateToken, getUserById);
+
+// Update user (admin can update any user)
+router.put('/:userId', authenticateToken, updateUser);
+
+// Change user password (admin only)
+router.post('/change-password', authenticateToken, requireAdmin, changeUserPassword);
 
 export default router;

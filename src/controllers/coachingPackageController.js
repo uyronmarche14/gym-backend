@@ -284,6 +284,9 @@ export const purchasePackage = async (req, res) => {
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + package_.validityDays);
 
+        // Generate invoice number
+        const invoiceNumber = `INV-${Date.now()}-${userId}`;
+
         // Create payment record
         const payment = await prisma.payment.create({
             data: {
@@ -294,6 +297,7 @@ export const purchasePackage = async (req, res) => {
                 paymentType: 'coaching_package',
                 status: 'pending',
                 receiptUrl,
+                invoiceNumber, // Added invoiceNumber
             },
         });
 
@@ -308,7 +312,7 @@ export const purchasePackage = async (req, res) => {
                 paymentId: payment.id,
                 amount,
                 expiryDate,
-                status: 'active', // Will be activated when payment is approved
+                status: 'pending', // Will be activated when payment is approved
             },
             include: {
                 package: true,

@@ -181,46 +181,72 @@ export const updatePaymentStatus = async (req, res) => {
                     approvalNotes: approvalNotes || null,
                     approvedAt: new Date()
                 },
-                include: { user: true, membershipPlan: true }
+                include: { 
+                    user: true, 
+                    membershipPlan: true,
+                    packagePurchase: true // Include linked package purchase
+                }
             });
 
-            // 2. If approved, update User Membership
+            // 2. If approved, update User Membership or Activate Package
             if (status === 'approved') {
-                // Calculate new expiry date
-                const today = new Date();
-                let durationDays = 30; // Default fallback
-
-                if (payment.membershipPlan) {
-                    durationDays = payment.membershipPlan.durationDays;
-                } else {
-                    // Try to infer from planName (Legacy support)
-                    const name = payment.planName.toLowerCase();
-                    if (name.includes('week')) durationDays = 7;
-                    else if (name.includes('half month')) durationDays = 15;
-                    else if (name.includes('3 month')) durationDays = 90;
-                    else if (name.includes('6 month')) durationDays = 180;
-                    else if (name.includes('year')) durationDays = 365;
-                    else if (name.includes('walk-in') || name.includes('daily')) durationDays = 1;
-                }
-
-                // If user already has an active future expiry, add to it? 
-                // For now, let's just set it from today or extend current expiry if it's in the future.
-                let startDate = today;
-                if (payment.user.expiryDate && payment.user.expiryDate > today) {
-                    startDate = payment.user.expiryDate;
-                }
-
-                const expiryDate = new Date(startDate);
-                expiryDate.setDate(expiryDate.getDate() + durationDays);
-
-                await prisma.user.update({
-                    where: { id: payment.userId },
-                    data: {
-                        membershipType: payment.planName,
-                        status: 'active',
-                        expiryDate: expiryDate
+                // Check if this payment is linked to a package purchase (either by relation or type)
+                if (payment.packagePurchase) {
+                    // Activate the linked package
+                    await prisma.packagePurchase.update({
+                        where: { id: payment.packagePurchase.id },
+                        data: { status: 'active' }
+                    });
+                } else if (payment.paymentType === 'coaching_package') {
+                    // Fallback: Check for loose linkage if relation wasn't loaded (though include ensures it is)
+                    const purchase = await prisma.packagePurchase.findFirst({
+                        where: { paymentId: payment.id }
+                    });
+                    
+                    if (purchase) {
+                         await prisma.packagePurchase.update({
+                             where: { id: purchase.id },
+                             data: { status: 'active' }
+                         });
                     }
-                });
+                } else {
+                    // Membership Plan Logic (Only if NOT a coaching package)
+                    // Calculate new expiry date
+                    const today = new Date();
+                    let durationDays = 30; // Default fallback
+
+                    if (payment.membershipPlan) {
+                        durationDays = payment.membershipPlan.durationDays;
+                    } else {
+                        // Try to infer from planName (Legacy support)
+                        const name = payment.planName.toLowerCase();
+                        if (name.includes('week')) durationDays = 7;
+                        else if (name.includes('half month')) durationDays = 15;
+                        else if (name.includes('3 month')) durationDays = 90;
+                        else if (name.includes('6 month')) durationDays = 180;
+                        else if (name.includes('year')) durationDays = 365;
+                        else if (name.includes('walk-in') || name.includes('daily')) durationDays = 1;
+                    }
+
+                    // If user already has an active future expiry, add to it? 
+                    // For now, let's just set it from today or extend current expiry if it's in the future.
+                    let startDate = today;
+                    if (payment.user.expiryDate && payment.user.expiryDate > today) {
+                        startDate = payment.user.expiryDate;
+                    }
+
+                    const expiryDate = new Date(startDate);
+                    expiryDate.setDate(expiryDate.getDate() + durationDays);
+
+                    await prisma.user.update({
+                        where: { id: payment.userId },
+                        data: {
+                            membershipType: payment.planName,
+                            status: 'active',
+                            expiryDate: expiryDate
+                        }
+                    });
+                }
             }
 
             return payment;
