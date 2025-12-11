@@ -18,6 +18,8 @@ import trainingSessionRoutes from "./routes/trainingSessions.js";
 import packagePurchaseRoutes from "./routes/packagePurchases.js";
 import staffRoutes from "./routes/staff.js";
 import passwordResetRoutes from "./routes/passwordReset.js";
+import checkInRoutes from "./routes/checkIn.js";
+import usersRoutes from "./routes/users.js";
 import { testEmailConfiguration } from "./services/emailService.js";
 import { checkExpiringMemberships } from "./services/membershipService.js";
 import cron from 'node-cron';
@@ -64,6 +66,8 @@ app.use("/api/coaches", coachRoutes);
 app.use("/api/coaching-packages", coachingPackageRoutes);
 app.use("/api/training-sessions", trainingSessionRoutes);
 app.use("/api/package-purchases", packagePurchaseRoutes);
+app.use("/api/check-ins", checkInRoutes);
+app.use("/api/users", usersRoutes);
 
 // Run expiry check on startup
 checkExpiringMemberships();
